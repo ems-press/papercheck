@@ -1,5 +1,5 @@
 -- Papercheck (functions)
--- Version 0.4 (2022/08/05)
+-- Version 0.3.1 (2022/08/05)
 -- By Simon Winter
 -- https://github.com/ems-press/papercheck
 
