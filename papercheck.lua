@@ -1,5 +1,5 @@
 -- Papercheck
--- Version 0.3.1 (2022/08/05)
+-- Version 0.3.2 (2022/10/04)
 -- By Simon Winter
 -- https://github.com/ems-press/papercheck
 
@@ -195,7 +195,7 @@ local inconsistency = {
   {"[cC]entre", "[cC]enter"},
   {"Diophantine", "diophantine"},
   {"[dD]isk[s%p\n%s]", "[dD]isc[s%p\n%s]"},
-  {"Euclidean", "euclidean"},
+  {"Euclidean", "euclidean", "Euclidian", "euclidian"},
   {"[fF]actorises", "[fF]actorizes"},
   {"[fF]ibre", "[fF]iber"},
   {"[fF]ormulas", "[fF]ormulae"},
@@ -208,6 +208,8 @@ local inconsistency = {
   {"Riemannian", "riemannian"},
   {"[vV]ertexes", "[vV]ertices"},
   {"[zZ]eros", "[zZ]eroes"},
+  {"[cC]ounterexample", "[cC]ounter%-[eE]xample"},
+  {"[eE]nsure", "[iI]nsure"},
   ---
 }
 for i = 1, #inconsistency do
@@ -331,7 +333,7 @@ local pattern_note = {
   {"\\subsubsection%s*{ ", "Do not use blank after \\subsubsection{"},
   {"\\paragraph%s*{ ", "Do not use blank after \\paragraph{"},
   {"\\subparagraph%s*{ ", "Do not use blank after \\subparagraph{"},
-  {"||", "|| --?--> \\rvert\\lvert or \\Vert"},
+  {"||", "|| --?--> \\rVert\\lVert or \\Vert"},
   {"\\mathit", "Check use of \\mathit"},
   {"\\it[^%a]", "Avoid \\it"},
   {"\\bf[^%a]", "Avoid \\bf"},
@@ -358,6 +360,8 @@ local pattern_note = {
   {"we've", "we've --?--> we have"},
   {"We've", "We've --?--> We have"},
   {"n't", "n't --?--> not"},
+  {"'re%A", "'re --?--> are"},
+  {"can[%s\n~]+not", "can not --?--> cannot"},
   {"the[%s\n~]+from", "the from --?--> the form"},
   {"The[%s\n~]+from", "The from --?--> The form"},
   {"form[%s\n~]+the", "form the --?--> from the"},
@@ -374,6 +378,7 @@ local pattern_note = {
   {"[cC]ompliment", "Compliment/compliment --?--> complement"},
   {"[Pp]receeding", "Preceeding/preceeding --?--> preceding"},
   {"[Pp]roceeded", "Proceeded/proceeded --?--> preceded/preceding"},
+  {"[rR]egrading", "Regrading/regrading --?--> regarding"},
 }
 for i = 1, #pattern_note do
   F.patternsearch(texcode,pattern_note[i][1],pattern_note[i][2])
