@@ -1,5 +1,5 @@
 -- Papercheck (functions)
--- Version 0.3.1 (2022/08/05)
+-- Version 0.3.3 (2022/10/19)
 -- By Simon Winter
 -- https://github.com/ems-press/papercheck
 
@@ -87,14 +87,18 @@ function M.recursivepatternsearch(text,pattern,note)
   end
 end
 
--- If repeated words of at least two letters are found in 'text', then return them.
-function M.repeatedword(text)
+-- If duplicate words of at least two letters are found in 'text', then return them.
+function M.duplicatewords(text)
   local finding = text:match('[^%a](%a%a+)[%s\n~]+%1[^%a]')
   if finding then
     blankline = true
     print('Double word: '..finding)
     -- Recursive:
-    M.repeatedword(text:gsub(M.escape_lua(finding),''))
+    M.duplicatewords(text:gsub(M.escape_lua(finding),'_'))
+    -- Note: If we replaced the double word with a space, new word duplications 
+    -- could result. So we choose _. Example:
+    -- "The strongly monotone and monotone cases are explained and and proved." 
+    -- --> "The strongly monotone _ monotone cases are explained _ _ proved." 
   end
 end
 
@@ -122,6 +126,13 @@ end
 function M.hyphenatedsearch(text,a,b)
   M.inconsistencysearch(text,{a..b, a..'%-'..b, a..'[%s\n~]+'..b})
   M.inconsistencysearch(text,{capitalize(a)..b, capitalize(a)..'%-'..b, capitalize(a)..'[%s\n~]+'..b})
+end
+
+-- Similar to M.hyphenatedsearch, but no letter in front of 'a'.
+function M.hyphenatedsearch_standalone(text,a,b)
+  M.inconsistencysearch(text,{'%A'..a..b, '%A'..a..'%-'..b, '%A'..a..'[%s\n~]+'..b})
+  M.inconsistencysearch(text,{'%A'..capitalize(a)..b, '%A'..capitalize(a)..'%-'..b,
+    '%A'..capitalize(a)..'[%s\n~]+'..b})
 end
 
 local function prefixsuffixsearch(text,prefixsuffix,patterns)

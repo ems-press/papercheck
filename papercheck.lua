@@ -1,5 +1,5 @@
 -- Papercheck
--- Version 0.3.2 (2022/10/04)
+-- Version 0.3.3 (2022/10/19)
 -- By Simon Winter
 -- https://github.com/ems-press/papercheck
 
@@ -149,9 +149,9 @@ for i = 1, #VarGreeks do
 end
 F.add_blankline()
 
--- Find double words:
-F.patternsearch(texcode,"[^%a][Aa][%s\n~]+[Aa][^%a]", "Double word: A/a")
-F.repeatedword(texcode)
+-- Find duplicate words:
+F.patternsearch(texcode,"[^%a][Aa][%s\n~]+[Aa][^%a]", "Duplicate word: A/a")
+F.duplicatewords(texcode)
 F.add_blankline()
 
 local bibliography = texcode:match('(\\begin%s*{thebibliography}.-\\end%s*{thebibliography})')
@@ -245,7 +245,6 @@ local hyphenated = {
   {"set", "theoretic"},
   {"set", "up"},
   {"simply", "connected"},
-  {"so", "called"},
   {"square", "root"},
   {"star", "shaped"},
   {"straight", "forward"},
@@ -259,6 +258,14 @@ local hyphenated = {
 }
 for i = 1, #hyphenated do
   F.hyphenatedsearch(texcode,hyphenated[i][1],hyphenated[i][2])
+  F.add_blankline()
+end
+
+local hyphenated_standalone = {
+  {"so", "called"}, -- Don't search for 'also called'.
+}
+for i = 1, #hyphenated_standalone do
+  F.hyphenatedsearch_standalone(texcode,hyphenated_standalone[i][1],hyphenated_standalone[i][2])
   F.add_blankline()
 end
 
@@ -327,7 +334,6 @@ local pattern_note = {
   {"\\,%s*;", "\\,; --?--> ;"},
   {"\\,%s*%.", "\\,. --?--> ."},
   {",%s*\\cdots", ",\\cdots --?--> ,\\ldots"},
-  {"begin{aligned}[%s\n~]+%[", "No [ allowed after \\begin{aligned}. Write '\\begin{aligned}{} ['"},
   {"\\section%s*{ ", "Do not use blank after \\section{"},
   {"\\subsection%s*{ ", "Do not use blank after \\subsection{"},
   {"\\subsubsection%s*{ ", "Do not use blank after \\subsubsection{"},
@@ -353,7 +359,8 @@ local pattern_note = {
   {"er[%s\n~]+then", "[...]er then --?--> [...]er than"},
   {"if[%s\n~]+follows", "if follows --?--> it follows"},
   {"If[%s\n~]+follows", "If follows --?--> It follows"},
-  {"[iI]f[%s\n~]+and[%s\n~]+only[%s\n~]+[^i][^f]", "Probably second 'if' missing in 'if and only'"},
+  {"[iI]f[%s\n~]+and[%s\n~]+only[%s\n~]+[^i^%s^\n^~][^f^%s^\n^~]", 
+    "Probably second 'if' missing in 'if and only'"},
   {"it's", "it's --?--> 'it is' or 'its'"},
   {"It's", "It's --?--> 'It is' or 'Its'"},
   {"Let's", "Let's --?--> Let us"},
@@ -364,7 +371,7 @@ local pattern_note = {
   {"can[%s\n~]+not", "can not --?--> cannot"},
   {"the[%s\n~]+from", "the from --?--> the form"},
   {"The[%s\n~]+from", "The from --?--> The form"},
-  {"form[%s\n~]+the", "form the --?--> from the"},
+  {"%Aform[%s\n~]+the", "form the --?--> from the"},
   {"Form[%s\n~]+the", "Form the --?--> From the"},
   {"Leibnitz", "Leibnitz --?--> Leibniz (Gottfried Wilhelm)"},
   {"[%-–]+Schwartz", "Schwartz --?--> Schwarz (Cauchy--Schwarz)"},
