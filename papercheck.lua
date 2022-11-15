@@ -1,5 +1,5 @@
 -- Papercheck
--- Version 0.3.3 (2022/10/19)
+-- Version 0.4 (2022/11/15)
 -- By Simon Winter
 -- https://github.com/ems-press/papercheck
 
@@ -91,6 +91,14 @@ resolveinclude('include')
 resolveinclude('input')
 print("-------------------\n")
 
+blankline = false -- must not be local
+
+---------
+-- STEP 1
+-- Remove all LaTeX comments. 
+-- First round of searches.
+---------
+
 -- Delete all LaTeX comments.
 -- N.B.: Don't delete the percent sign \%.
 -- Since gsub('([^\\])%%.-\n', '%1\n') doesn't work with sequenced %-lines,
@@ -104,18 +112,13 @@ end
 texcode = table.concat(new, '\n')
 texcode = texcode:gsub('([^\\])%%.-\n', '%1\n')
 
--- Delete all labels.
-texcode = texcode:gsub('\\label%s*%b{}', '\\label{xxx}')
-texcode = texcode:gsub('\\ref%s*%b{}', '\\ref{xxx}')
-texcode = texcode:gsub('\\eqref%s*%b{}', '\\eqref{xxx}')
-texcode = texcode:gsub('\\cite%s*%b{}', '\\cite{xxx}')
-texcode = texcode:gsub('\\cite%s*(%b[])%s*%b{}', '\\cite%1{xxx}')
-texcode = texcode:gsub('\\bibitem%s*%b{}', '\\bibitem{xxx}')
-texcode = texcode:gsub('\\bibitem%s*%b[]%s*%b{}', '\\bibitem{xxx}')
+local bibliography = texcode:match('(\\begin%s*{thebibliography}.-\\end%s*{thebibliography})')
 
-blankline = false -- must not be local
-
-----------------------------------
+if bibliography then
+  F.patternsearch(bibliography,"Verlag", "Word 'Verlag' found in the bibliography;"
+    .." should be avoided after 'Springer' and 'Birkh\\\"auser'.")
+  F.add_blankline()
+end
 
 local Greeks = {
 'alpha','beta','Gamma','gamma','Delta','delta','epsilon','varepsilon',
@@ -141,6 +144,28 @@ for i = 1, #Greeks do
     "Don't use \\"..Greeks[i].." in \\DeclareMathOperator")
 end
 
+---------
+-- STEP 2
+-- Remove the bibliography, most labels, and the names of most environments. 
+-- Second round of searches.
+---------
+
+-- Delete the bibliography.
+texcode = texcode:gsub('\\begin%s*{thebibliography}.-\\end%s*{thebibliography}', '')
+
+-- Delete all labels.
+texcode = texcode:gsub('\\label%s*%b{}', '\\label{_}')
+texcode = texcode:gsub('\\ref%s*%b{}', '\\ref{_}')
+texcode = texcode:gsub('\\eqref%s*%b{}', '\\eqref{_}')
+texcode = texcode:gsub('\\cite%s*%b{}', '\\cite{_}')
+texcode = texcode:gsub('\\cite%s*(%b[])%s*%b{}', '\\cite%1{_}')
+texcode = texcode:gsub('\\bibitem%s*%b{}', '\\bibitem{_}')
+texcode = texcode:gsub('\\bibitem%s*%b[]%s*%b{}', '\\bibitem{_}')
+
+-- Delete the names of all environments.
+texcode = texcode:gsub('\\begin%s*%b{}', '\\begin{_}')
+texcode = texcode:gsub('\\end%s*%b{}', '\\end{_}')
+
 local VarGreeks = {
 'Gamma','Delta','Theta','Lambda','Xi','Pi','Sigma','Upsilon','Phi','Psi','Omega'}
 
@@ -149,32 +174,13 @@ for i = 1, #VarGreeks do
 end
 F.add_blankline()
 
--- Find duplicate words:
-F.patternsearch(texcode,"[^%a][Aa][%s\n~]+[Aa][^%a]", "Duplicate word: A/a")
-F.duplicatewords(texcode)
-F.add_blankline()
-
-local bibliography = texcode:match('(\\begin%s*{thebibliography}.-\\end%s*{thebibliography})')
-
-if bibliography then
-  F.patternsearch(bibliography,"Verlag", "Word 'Verlag' found in the bibliography;"
-    .." should be avoided after 'Springer' and 'Birkh\\\"auser'.")
-  F.add_blankline()
-end
-
 -- Special check for \epsilon vs. \varepsilon:
 F.inconsistencysearch(texcode,{"\\epsilon", "\\varepsilon"})
 if texcode:match("\\epsilon") and not texcode:match("\\varepsilon") then
   print("\\epsilon --> \\varepsilon\n")
 end
 
--- !!!
--- Now remove the bibliography.
--- !!!
-texcode = texcode:gsub('\\begin%s*{thebibliography}.-\\end%s*{thebibliography}', '')
-
-local inconsistency = {
-  -- {"\\epsilon", "\\varepsilon"}, -- see above
+local inconsistencyI = {
   {"\\theta", "\\vartheta"},
   {"\\pi", "\\varpi"},
   {"\\rho", "\\varrho"},
@@ -182,94 +188,13 @@ local inconsistency = {
   {"\\phi", "\\varphi"},
   {"\\setminus", "\\smallsetminus", "\\backslash"},
   {"\\emptyset", "\\varnothing"},
-  {"[^%a]ker[^%a]", "[^%a]Ker[^%a]"},
-  {"[^%a]Im[^%a]", "[^%a]im[^%a]"},
-  {"[^%a]Re[^%a]", "[^%a]re[^%a]"},
-  {"rhs", "RHS", "right hand side", "right%-hand side"},
-  {"lhs", "LHS", "left hand side", "left%-hand side"},
-  {"K[%-%s\n~]+theory", "%$K%$[%-%s\n~]+theory"},
-  {"K[%-%s\n~]+theory", "\\%(K\\%)[%-%s\n~]+theory"},
-  ---
-  {"Abelian", "abelian"},
-  {"[aA]nalogue", "[aA]nalogs?[^%a]"},
-  {"[cC]entre", "[cC]enter"},
-  {"Diophantine", "diophantine"},
-  {"[dD]isk[s%p\n%s]", "[dD]isc[s%p\n%s]"},
-  {"Euclidean", "euclidean", "Euclidian", "euclidian"},
-  {"[fF]actorises", "[fF]actorizes"},
-  {"[fF]ibre", "[fF]iber"},
-  {"[fF]ormulas", "[fF]ormulae"},
-  {"[hH]omogenous", "[hH]omogeneous"},
-  {"[lL]emmas", "[lL]emmata"},
-  {"[nN]eighbour", "[nN]eighbor"},
-  {"Noetherian", "noetherian"},
-  {"[nN]ormalisation", "[nN]ormalization"},
-  {"[pP]arametrisation", "[pP]arametrization"},
-  {"Riemannian", "riemannian"},
-  {"[vV]ertexes", "[vV]ertices"},
-  {"[zZ]eros", "[zZ]eroes"},
-  {"[cC]ounterexample", "[cC]ounter%-[eE]xample"},
-  {"[eE]nsure", "[iI]nsure"},
-  ---
 }
-for i = 1, #inconsistency do
-  F.inconsistencysearch(texcode,inconsistency[i])
+for i = 1, #inconsistencyI do
+  F.inconsistencysearch(texcode,inconsistencyI[i])
   F.add_blankline()
 end
 
-local hyphenated = {
-  {"anti", "homomorphism"},
-  {"bi", "linear"},
-  {"bi", "section"},
-  {"bi", "quotient"},
-  {"bi", "invariant"},
-  {"blow", "up"},
-  {"chain", "complex"},
-  {"co", "domain"},
-  {"co", "representation"},
-  {"cross", "product"},
-  {"finite", "dimensional"},
-  {"left", "exact"},
-  {"long", "standing"},
-  {"multi", "index"},
-  {"nil", "radical"},
-  {"order", "preserving"},
-  {"pre", "image"},
-  {"pre", "compact"},
-  {"pro", "algebraic"},
-  {"pull", "back"},
-  {"re", "indexing"},
-  {"scalar", "valued"},
-  {"self", "adjoint"},
-  {"self", "induced"},
-  {"set", "theoretic"},
-  {"set", "up"},
-  {"simply", "connected"},
-  {"square", "root"},
-  {"star", "shaped"},
-  {"straight", "forward"},
-  {"square", "free"},
-  {"two", "fold"},
-  {"two", "sided"},
-  {"torsion", "free"},
-  {"uni", "tarizability"},
-  {"vector", "space"},
-  {"zariski", "open"},
-}
-for i = 1, #hyphenated do
-  F.hyphenatedsearch(texcode,hyphenated[i][1],hyphenated[i][2])
-  F.add_blankline()
-end
-
-local hyphenated_standalone = {
-  {"so", "called"}, -- Don't search for 'also called'.
-}
-for i = 1, #hyphenated_standalone do
-  F.hyphenatedsearch_standalone(texcode,hyphenated_standalone[i][1],hyphenated_standalone[i][2])
-  F.add_blankline()
-end
-
-local pattern_note = {
+local pattern_noteI = {
   {"[^\\]%.[%s\n~]*\\end%b{}[%s\n~]*where", "'. \\end{...} where' found"},
   {"[^\\]%.[%s\n~]*\\%][%s\n~]*where", "'. \\] where' found"},
   {"%$%s+%$", "Space in-between $ $ correct?"},
@@ -343,7 +268,137 @@ local pattern_note = {
   {"\\mathit", "Check use of \\mathit"},
   {"\\it[^%a]", "Avoid \\it"},
   {"\\bf[^%a]", "Avoid \\bf"},
-  --
+}
+for i = 1, #pattern_noteI do
+  F.patternsearch(texcode,pattern_noteI[i][1],pattern_noteI[i][2])
+  F.add_blankline()
+end
+
+local recursivepattern_note = {
+  {"Let%s*%$[^%$]-%$%s*is", "Grammar?"},
+  -- TODO: Don't know how to match it with \(...\) instead of $...$.
+  {"Let%s*%$[^%$]-%$%s*are", "Grammar?"},
+  -- TODO: Don't know how to match it with \(...\) instead of $...$.
+  {",%s*\\l?dots%s*\\?%a", "Missing comma?"},
+}
+for i = 1, #recursivepattern_note do
+  F.recursivepatternsearch(texcode,recursivepattern_note[i][1],recursivepattern_note[i][2])
+  F.add_blankline()
+end
+
+local prefix = {'equi', 'non', 'pseudo', 'quasi', 'semi', 'well'}
+for i = 1, #prefix do
+  F.prefixsearch(texcode,prefix[i])
+  F.add_blankline()
+end
+
+local suffix = {'dimensional', 'form', 'type'}
+for i = 1, #suffix do
+  F.suffixsearch(texcode,suffix[i])
+  F.add_blankline()
+end
+
+---------
+-- STEP 3
+-- Remove most LaTeX commands.
+-- Third round of searches.
+---------
+
+-- Delete LaTeX commands.
+texcode = texcode:gsub('\\%a+', '\\_')
+
+-- Find duplicate words:
+F.patternsearch(texcode,"[^%a][Aa][%s\n~]+[Aa][^%a]", "Duplicate word: A/a")
+F.duplicatewords(texcode)
+F.add_blankline()
+
+local inconsistencyII = {
+  {"[^%a]ker[^%a]", "[^%a]Ker[^%a]"},
+  {"[^%a]Im[^%a]", "[^%a]im[^%a]"},
+  {"[^%a]Re[^%a]", "[^%a]re[^%a]"},
+  {"rhs", "RHS", "right hand side", "right%-hand side"},
+  {"lhs", "LHS", "left hand side", "left%-hand side"},
+  {"K[%-%s\n~]+theory", "%$K%$[%-%s\n~]+theory"},
+  {"K[%-%s\n~]+theory", "\\%(K\\%)[%-%s\n~]+theory"},
+  {"Abelian", "abelian"},
+  {"[aA]nalogue", "[aA]nalogs?[^%a]"},
+  {"[cC]entre", "[cC]enter"},
+  {"Diophantine", "diophantine"},
+  {"[dD]isk[s%p\n%s]", "[dD]isc[s%p\n%s]"},
+  {"Euclidean", "euclidean", "Euclidian", "euclidian"},
+  {"[fF]actorises", "[fF]actorizes"},
+  {"[fF]ibre", "[fF]iber"},
+  {"[fF]ormulas", "[fF]ormulae"},
+  {"[hH]omogenous", "[hH]omogeneous"},
+  {"[lL]emmas", "[lL]emmata"},
+  {"[nN]eighbour", "[nN]eighbor"},
+  {"Noetherian", "noetherian"},
+  {"[nN]ormalisation", "[nN]ormalization"},
+  {"[pP]arametrisation", "[pP]arametrization"},
+  {"Riemannian", "riemannian"},
+  {"[vV]ertexes", "[vV]ertices"},
+  {"[zZ]eros", "[zZ]eroes"},
+  {"[cC]ounterexample", "[cC]ounter%-[eE]xample"},
+  {"[eE]nsure", "[iI]nsure"},
+}
+for i = 1, #inconsistencyII do
+  F.inconsistencysearch(texcode,inconsistencyII[i])
+  F.add_blankline()
+end
+
+local hyphenated = {
+  {"anti", "homomorphism"},
+  {"bi", "linear"},
+  {"bi", "section"},
+  {"bi", "quotient"},
+  {"bi", "invariant"},
+  {"blow", "up"},
+  {"chain", "complex"},
+  {"co", "domain"},
+  {"co", "representation"},
+  {"cross", "product"},
+  {"finite", "dimensional"},
+  {"left", "exact"},
+  {"long", "standing"},
+  {"multi", "index"},
+  {"nil", "radical"},
+  {"order", "preserving"},
+  {"pre", "image"},
+  {"pre", "compact"},
+  {"pro", "algebraic"},
+  {"pull", "back"},
+  {"re", "indexing"},
+  {"scalar", "valued"},
+  {"self", "adjoint"},
+  {"self", "induced"},
+  {"set", "theoretic"},
+  {"set", "up"},
+  {"simply", "connected"},
+  {"square", "root"},
+  {"star", "shaped"},
+  {"straight", "forward"},
+  {"square", "free"},
+  {"two", "fold"},
+  {"two", "sided"},
+  {"torsion", "free"},
+  {"uni", "tarizability"},
+  {"vector", "space"},
+  {"zariski", "open"},
+}
+for i = 1, #hyphenated do
+  F.hyphenatedsearch(texcode,hyphenated[i][1],hyphenated[i][2])
+  F.add_blankline()
+end
+
+local hyphenated_standalone = {
+  {"so", "called"}, -- Don't search for 'also called'.
+}
+for i = 1, #hyphenated_standalone do
+  F.hyphenatedsearch_standalone(texcode,hyphenated_standalone[i][1],hyphenated_standalone[i][2])
+  F.add_blankline()
+end
+
+local pattern_noteII = {
   {"In[%s\n~]+fact[^,]", "Missing comma after 'In fact'."},
   {"In[%s\n~]+particular[^,]", "Missing comma after 'In particular'."},
   {"Moreover[^,]", "Missing comma after 'Moreover'."},
@@ -387,38 +442,19 @@ local pattern_note = {
   {"[Pp]roceeded", "Proceeded/proceeded --?--> preceded/preceding"},
   {"[rR]egrading", "Regrading/regrading --?--> regarding"},
 }
-for i = 1, #pattern_note do
-  F.patternsearch(texcode,pattern_note[i][1],pattern_note[i][2])
-  F.add_blankline()
-end
-
-local recursivepattern_note = {
-  {"Let%s*%$[^%$]-%$%s*is", "Grammar?"},
-  -- TODO: Don't know how to match it with \(...\) instead of $...$.
-  {"Let%s*%$[^%$]-%$%s*are", "Grammar?"},
-  -- TODO: Don't know how to match it with \(...\) instead of $...$.
-  {",%s*\\l?dots%s*\\?%a", "Missing comma?"},
-}
-for i = 1, #recursivepattern_note do
-  F.recursivepatternsearch(texcode,recursivepattern_note[i][1],recursivepattern_note[i][2])
-  F.add_blankline()
-end
-
-local prefix = {'equi', 'non', 'pseudo', 'quasi', 'semi', 'well'}
-for i = 1, #prefix do
-  F.prefixsearch(texcode,prefix[i])
-  F.add_blankline()
-end
-
-local suffix = {'dimensional', 'form', 'type'}
-for i = 1, #suffix do
-  F.suffixsearch(texcode,suffix[i])
+for i = 1, #pattern_noteII do
+  F.patternsearch(texcode,pattern_noteII[i][1],pattern_noteII[i][2])
   F.add_blankline()
 end
 
 -- AE vs. BE
 F.americanbritish(texcode)
 F.add_blankline()
+
+---------
+-- STEP 4
+-- Analyze log and aux files.
+---------
 
 -- The log file is only required if the 'refcheck' package is used.
 -- Since 'refcheck' could be loaded by a package, a case distinction
@@ -486,4 +522,5 @@ if F.tablelength(cites)>0 then
   print("The following \\bibitem's are missing: "..table.concat(unmatched, ', ').."\n")
 end
 
+--print(texcode)
 -- End of file.
